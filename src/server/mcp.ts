@@ -17,6 +17,41 @@ interface ServeOptions {
   context?: Record<string, string>;
 }
 
+export function parseContextEnv(raw: string | undefined): Record<string, string> | undefined {
+  if (!raw) return undefined;
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error("SCOPEDB_CONTEXT must be valid JSON");
+  }
+
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("SCOPEDB_CONTEXT must be a JSON object");
+  }
+
+  const context: Record<string, string> = {};
+  for (const [key, value] of Object.entries(parsed)) {
+    if (value === null || typeof value === "object") {
+      throw new Error(`SCOPEDB_CONTEXT value for '${key}' must be a string, number, or boolean`);
+    }
+    context[key] = String(value);
+  }
+
+  return context;
+}
+
+export function getServeOptionsFromEnv(
+  env: NodeJS.ProcessEnv = process.env,
+): ServeOptions {
+  return {
+    configPath: env.SCOPEDB_CONFIG ?? "./scopedb.config.yaml",
+    scopeName: env.SCOPEDB_SCOPE,
+    context: parseContextEnv(env.SCOPEDB_CONTEXT),
+  };
+}
+
 /**
  * Create and start an MCP server for a given scope.
  */
@@ -148,9 +183,8 @@ const isDirectRun =
   process.argv[1]?.endsWith("server/mcp");
 
 if (isDirectRun) {
-  const configPath = process.env.SCOPEDB_CONFIG ?? "./scopedb.config.yaml";
-  const scopeName = process.env.SCOPEDB_SCOPE;
-  serve({ configPath, scopeName }).catch((err) => {
+  const options = getServeOptionsFromEnv();
+  serve(options).catch((err) => {
     console.error("[scopedb] Fatal:", err.message);
     process.exit(1);
   });

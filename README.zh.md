@@ -160,8 +160,8 @@ settings:
 claude mcp add scopedb-support \
   -e SUPABASE_URL=https://xxx.supabase.co \
   -e SUPABASE_SERVICE_KEY=your-key \
-  -e ASKDB_CONFIG=./scopedb.config.yaml \
-  -e ASKDB_SCOPE=support \
+  -e SCOPEDB_CONFIG=./scopedb.config.yaml \
+  -e SCOPEDB_SCOPE=support \
   -- node /path/to/scopedb-mcp/dist/server/mcp.js
 ```
 
@@ -176,8 +176,8 @@ claude mcp add scopedb-support \
       "env": {
         "SUPABASE_URL": "https://xxx.supabase.co",
         "SUPABASE_SERVICE_KEY": "your-key",
-        "ASKDB_CONFIG": "./scopedb.config.yaml",
-        "ASKDB_SCOPE": "support"
+        "SCOPEDB_CONFIG": "./scopedb.config.yaml",
+        "SCOPEDB_SCOPE": "support"
       }
     }
   }
@@ -267,7 +267,7 @@ scopes:
 
 ```bash
 claude mcp add scopedb-user \
-  -e ASKDB_CONTEXT='{"current_user_id":"user-uuid-here"}' \
+  -e SCOPEDB_CONTEXT='{"current_user_id":"user-uuid-here"}' \
   ...
 ```
 
