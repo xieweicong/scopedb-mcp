@@ -1,79 +1,98 @@
+<div align="center">
+
 # ScopeDB MCP
 
-**Let AI access your database safely — a config-driven, permission-isolated MCP server & library**
+**Give AI database access without giving it your whole database.**
+
+Config-driven MCP server and TypeScript library for scoped, auditable AI data access.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-blue.svg)](https://www.typescriptlang.org/)
 [![MCP](https://img.shields.io/badge/MCP-compatible-green.svg)](https://modelcontextprotocol.io/)
 
-> 🌐 [中文](./README.zh.md) | [日本語](./README.ja.md)
+[中文](./README.zh.md) | [日本語](./README.ja.md)
+
+</div>
 
 ---
 
-## The Problem
-
-When building AI-powered features, your AI often needs data from the database to generate meaningful responses. Today there are two common approaches — both have serious drawbacks:
-
-**Approach 1: Manual context assembly**
-You write code to fetch specific data, assemble it into context, and send it to the AI. This works, but it's rigid — every time the AI needs different data, you have to modify your backend code. The AI can't ask follow-up questions or explore related data on its own.
-
-```typescript
-// You have to anticipate exactly what the AI needs...
-const user = await db.query("SELECT name, plan FROM users WHERE id = ?", [userId]);
-const orders = await db.query("SELECT * FROM orders WHERE user_id = ?", [userId]);
-
-const response = await ai.chat({
-  messages: [{ role: "user", content: `Summarize this customer: ${JSON.stringify({ user, orders })}` }],
-});
-// What if the AI also needs product details? You have to change your code.
-```
-
-**Approach 2: Give AI full database access (raw SQL or existing MCP servers)**
-The AI can query anything it needs — but it can also see everything: salaries, internal notes, cost prices, other users' data. This creates **security risks** and **context pollution** (irrelevant data wastes tokens and confuses the AI).
-
-## The Solution
-
-ScopeDB takes a different approach: **let the AI fetch the data it needs autonomously, but only within boundaries you define.**
-
-With a single YAML config, you declare exactly which tables, columns, and rows the AI can access. The AI gets database tools and decides what to query on its own — but it physically cannot see or touch anything outside its scope.
+ScopeDB lets AI fetch the data it needs on its own, but only inside the boundaries you define in YAML:
 
 ```yaml
-# "For this AI feature, it can read order status and product names,
-#  but NOT salaries, NOT internal notes, NOT other users' data."
 scopes:
-  order_assistant:
+  support:
     tables:
-      orders:  { access: read, columns: [product, amount, status] }
-      products: { access: read, columns: [name, price, category] }
-    settings: { max_rows: 50 }
+      users:  { access: read, columns: [name] }
+      orders: { access: read, columns: [product, amount, status] }
+    settings: { max_rows: 50, max_joins: 1 }
 ```
 
-- **No manual context assembly** — the AI queries what it needs
-- **No data leakage** — it only sees what you explicitly allow
-- **No raw SQL** — all queries are structured and validated through 5 security layers
-- **No code changes** — adjust the YAML config when requirements change
+The result is a better default for AI products:
+
+- **No manual context assembly** — stop hardcoding what data to fetch before every model call.
+- **No full-database exposure** — the AI only sees allowed tables, columns, rows, and operations.
+- **No raw SQL prompting** — queries are structured, validated, and bounded by scope settings.
+- **No code rewrite when requirements change** — update the config, not your app logic.
+
+## Why ScopeDB
+
+| Approach | What you get | What breaks |
+|----------|--------------|-------------|
+| Manual context assembly | Tight control | Rigid code, lots of glue logic, AI cannot explore follow-up questions |
+| Raw SQL / full DB access | Flexible querying | Security risk, token bloat, accidental exposure of sensitive data |
+| **ScopeDB** | AI autonomy with scoped access | You define the boundary once, and the tools stay inside it |
+
+## What It Feels Like
+
+One app can expose different database capabilities to different AI workflows without writing custom query code for each one:
+
+| Scope | AI can do | AI cannot do |
+|-------|-----------|--------------|
+| `support` | Read customer names and order status | See emails, salaries, or internal notes |
+| `analytics` | Join tables, aggregate revenue, compare trends | Read hidden columns outside the analytics view |
+| `admin` | Update specific fields like `orders.status` | Write arbitrary columns or mutate every table |
+
+Example:
+
+> User asks: "Show me Alice's latest order."
+>
+> In `support`, the AI can answer by reading `users.name` and `orders.status`.
+>
+> If it tries: "What is Alice's salary?" ScopeDB rejects the request because `salary` is not visible.
+
+## What You Get
+
+- **Scoped table and column visibility** for support agents, analytics tools, and internal copilots
+- **Row-level filters** for multi-tenant or user-specific data access
+- **Controlled JOINs and aggregation** for analytics use cases
+- **Write access to specific columns only** when you want AI to make safe updates
+- **Two integration modes**: standalone MCP server or TypeScript library inside your backend
 
 ## Use Cases
 
 | Scenario | Description |
 |----------|-------------|
-| **Backend AI Features** | Let AI autonomously fetch relevant user data to generate responses — without manually assembling context or exposing unnecessary tables |
-| **Support Agent** | Can only see customer names and order status — no emails, salaries, or internal notes |
-| **Data Analytics** | Cross-table JOINs and aggregation allowed, but cost prices and internal notes hidden |
-| **Admin Dashboard** | Write access granted, but only to specific columns (e.g., order status) |
-| **Multi-tenant SaaS** | Inject `user_id` via `context_params` so each user only sees their own data |
-| **Internal Tools** | Query business data with natural language — no SQL required |
+| **Backend AI Features** | AI autonomously fetches relevant data to generate responses — no manual context assembly, no unnecessary exposure |
+| **Support Agent** | Sees customer names and order status only — no emails, salaries, or internal notes |
+| **Data Analytics** | Cross-table JOINs and aggregation, but cost prices and internal notes hidden |
+| **Admin Dashboard** | Write access to specific columns only (e.g., order status) |
+| **Multi-tenant SaaS** | `context_params` injects `user_id` — each user sees only their own data |
+| **Internal Tools** | Natural language database queries — no SQL required |
 
-## Security Model
+## How The Boundary Is Enforced
+
+<div align="center">
 
 ```
 Request → Scope Isolation → Permission Guard → Structured Query Builder → Row Filter Injection → Resource Limits
 ```
 
+</div>
+
 1. **Scope Isolation** — each scope only sees tables and columns declared in config
 2. **Permission Guard** — validates access mode, column access, operator whitelist
-3. **Structured Queries** — no raw SQL; all parameters are validated before query construction
-4. **Row Filter Injection** — table-level + scope-level row_filters are automatically merged and injected
+3. **Structured Queries** — no raw SQL; all parameters validated before query construction
+4. **Row Filter Injection** — table-level + scope-level filters automatically merged and injected
 5. **Resource Limits** — max_rows / max_joins prevent oversized queries
 
 ## Quick Start
@@ -190,7 +209,7 @@ Once connected, the AI automatically gets these tools:
 
 - **`db_describe`** — View table schemas visible to the current scope
 - **`db_query`** — Structured queries (filters, sorting, JOINs, aggregation)
-- **`db_mutate`** — Data mutations (only available when scope includes write access)
+- **`db_mutate`** — Data mutations (only when scope includes write access)
 
 Just ask in natural language:
 
@@ -286,9 +305,7 @@ settings:
 
 ## Programmatic Usage (Backend Integration)
 
-ScopeDB can be used as a library in your backend — no MCP protocol needed. This is the recommended approach when your AI calls and database live in the same process.
-
-**Core idea:** resolve a scope based on the user's role, convert tools to your AI provider's format, and let the AI call them in a loop.
+Use ScopeDB as a library in your backend — no MCP protocol needed. Resolve a scope based on the user's role, convert tools to your AI provider's format, and let the AI call them in a loop.
 
 ```typescript
 import {
@@ -327,19 +344,16 @@ for (const tc of assistantMessage.tool_calls) {
 }
 ```
 
-The key is that **`scope` determines the permission boundary**. Different users get different scopes, and the entire downstream pipeline — permission checks, row filters, column visibility — is automatically enforced.
+**`scope` determines the permission boundary.** Different users get different scopes — permission checks, row filters, column visibility are all enforced automatically.
 
-See [`examples/backend-openrouter.ts`](./examples/backend-openrouter.ts) for a complete working example with tool_calls loop.
+See [`examples/backend-openrouter.ts`](./examples/backend-openrouter.ts) for a complete working example.
 
 ScopeDB can also run as a standalone MCP server:
 
 ```typescript
 import { serve } from "scopedb-mcp";
 
-await serve({
-  configPath: "./scopedb.config.yaml",
-  scopeName: "analytics",
-});
+await serve({ configPath: "./scopedb.config.yaml", scopeName: "analytics" });
 ```
 
 ## Development

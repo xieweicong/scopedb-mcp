@@ -1,74 +1,93 @@
+<div align="center">
+
 # ScopeDB MCP
 
-**让 AI 安全访问你的数据库 — 基于配置的权限隔离 MCP 服务器 & 库**
+**给 AI 数据库访问能力，而不是把整个数据库都交给它。**
+
+一个基于配置的 MCP 服务器和 TypeScript 库，用来给 AI 提供有边界、可审计的数据访问能力。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-blue.svg)](https://www.typescriptlang.org/)
 [![MCP](https://img.shields.io/badge/MCP-compatible-green.svg)](https://modelcontextprotocol.io/)
 
-> 🌐 [English](./README.md) | [日本語](./README.ja.md)
+[English](./README.md) | [日本語](./README.ja.md)
+
+</div>
 
 ---
 
-## 痛点
-
-在构建 AI 功能时，AI 经常需要从数据库获取数据来生成有意义的回复。目前有两种常见方案 — 都有严重缺陷：
-
-**方案一：手动组装上下文**
-你写代码去查特定的数据，拼好丢给 AI。能用，但太死板 — 每次 AI 需要不同的数据，你都得改后端代码。AI 不能自己追问或探索关联数据。
-
-```typescript
-// 你必须提前猜到 AI 需要什么数据...
-const user = await db.query("SELECT name, plan FROM users WHERE id = ?", [userId]);
-const orders = await db.query("SELECT * FROM orders WHERE user_id = ?", [userId]);
-
-const response = await ai.chat({
-  messages: [{ role: "user", content: `总结这个客户: ${JSON.stringify({ user, orders })}` }],
-});
-// 如果 AI 还需要商品详情呢？你得改代码。
-```
-
-**方案二：给 AI 完整数据库权限（裸 SQL 或现有 MCP 服务器）**
-AI 想查什么就查什么 — 但它也能看到所有东西：工资、内部备注、原价、其他用户的数据。这带来**安全风险**和**上下文污染**（无关数据浪费 token，还会干扰 AI 的判断）。
-
-## 解决方案
-
-ScopeDB 走了一条不同的路：**让 AI 自主获取它需要的数据，但只能在你划定的边界内。**
-
-用一个 YAML 配置，声明 AI 能访问哪些表、哪些列、哪些行。AI 拿到数据库工具后自己决定查什么 — 但它物理上无法看到或操作 scope 之外的任何东西。
+ScopeDB 让 AI 自己获取需要的数据，但只能在你用 YAML 定义好的边界里活动：
 
 ```yaml
-# "这个 AI 功能只能读订单状态和商品名，
-#  不能看工资、不能看内部备注、不能看其他用户的数据。"
 scopes:
-  order_assistant:
+  support:
     tables:
-      orders:  { access: read, columns: [product, amount, status] }
-      products: { access: read, columns: [name, price, category] }
-    settings: { max_rows: 50 }
+      users:  { access: read, columns: [name] }
+      orders: { access: read, columns: [product, amount, status] }
+    settings: { max_rows: 50, max_joins: 1 }
 ```
 
-- **无需手动组装上下文** — AI 自己查询它需要的数据
-- **没有数据泄露** — 只能看到你明确允许的内容
-- **没有裸 SQL** — 所有查询经过结构化验证，5 层安全校验
-- **无需改代码** — 需求变了改 YAML 配置就行
+它更像是 AI 产品该有的默认方案：
+
+- **不再手动组装上下文** — 不用每次模型调用前都手写一堆取数代码。
+- **不暴露整库** — AI 只能看到被允许的表、列、行和操作。
+- **不靠提示词拼裸 SQL** — 查询是结构化的，并且受 scope 规则约束。
+- **需求变化时不用重写业务逻辑** — 改配置，不改应用代码。
+
+## 为什么是 ScopeDB
+
+| 方案 | 你得到什么 | 会出什么问题 |
+|------|------------|--------------|
+| 手动组装上下文 | 控制力很强 | 胶水代码很多、维护成本高，AI 无法自行追问和探索 |
+| 裸 SQL / 全库访问 | 查询很灵活 | 安全风险高、token 浪费，还容易暴露敏感数据 |
+| **ScopeDB** | AI 自主取数，同时访问有边界 | 你只需要定义一次边界，后续工具都会在边界内工作 |
+
+## 实际体验是什么样
+
+同一个应用里，你可以给不同 AI 工作流暴露不同的数据能力，而不用为每一种场景单独写查询代码：
+
+| Scope | AI 可以做什么 | AI 不能做什么 |
+|-------|----------------|----------------|
+| `support` | 读取客户姓名和订单状态 | 查看邮箱、工资或内部备注 |
+| `analytics` | 做 JOIN、聚合收入、比较趋势 | 读取分析视图之外的隐藏字段 |
+| `admin` | 更新 `orders.status` 这类指定字段 | 随意写任意列，或修改所有表 |
+
+例子：
+
+> 用户问：“帮我看一下 Alice 最近一笔订单。”
+>
+> 在 `support` scope 下，AI 可以读取 `users.name` 和 `orders.status` 来回答。
+>
+> 如果它继续问“那 Alice 的工资是多少？”，ScopeDB 会直接拒绝，因为 `salary` 不在可见范围内。
+
+## 你会得到什么
+
+- **按表和列做可见性控制**，适合客服、分析工具、内部 Copilot 等场景
+- **行级过滤能力**，适合多租户或按用户隔离的数据访问
+- **可控的 JOIN 和聚合**，满足分析类 use case
+- **只开放指定字段的写权限**，让 AI 做安全更新
+- **两种接入方式**：独立 MCP 服务器，或直接集成进后端的 TypeScript 库
 
 ## 使用场景
 
 | 场景 | 说明 |
 |------|------|
-| **后端 AI 功能** | 让 AI 自主获取相关用户数据来生成回复 — 无需手动组装上下文，也不会暴露多余的表 |
-| **客服 Agent** | 只能查看客户姓名和订单状态，看不到邮箱、工资等敏感信息 |
+| **后端 AI 功能** | AI 自主获取相关数据来生成回复 — 不用手动组装上下文，也不会暴露多余数据 |
+| **客服 Agent** | 只能查看客户姓名和订单状态，看不到邮箱、工资或内部备注 |
 | **数据分析** | 可以跨表 JOIN 和聚合，但看不到原价和内部备注 |
 | **管理后台** | 拥有写入权限，但只能修改特定字段（如订单状态） |
 | **多租户 SaaS** | 通过 `context_params` 注入 `user_id`，每个用户只能访问自己的数据 |
 | **内部工具** | 用自然语言查询业务数据，无需编写 SQL |
 
-## 安全模型
+## 边界是如何被强制执行的
+
+<div align="center">
 
 ```
 请求 → Scope 隔离 → Permission Guard → 结构化查询构建 → 行过滤注入 → 资源限制
 ```
+
+</div>
 
 1. **Scope 隔离** — 每个 scope 只能看到配置中声明的表和列
 2. **Permission Guard** — 校验操作权限、列访问、操作符白名单
