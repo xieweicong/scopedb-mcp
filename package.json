@@ -6,16 +6,30 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./dist/index.js",
-    "./server": "./dist/server/mcp.js"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./server": {
+      "types": "./dist/server/mcp.d.ts",
+      "import": "./dist/server/mcp.js"
+    }
   },
+  "files": [
+    "dist",
+    "README.md",
+    "README.zh.md",
+    "README.ja.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src/"
+    "lint": "eslint src/",
+    "prepublishOnly": "pnpm build && pnpm test && pnpm typecheck"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1",
@@ -41,6 +55,9 @@
   "homepage": "https://github.com/xieweicong/scopedb-mcp#readme",
   "bugs": {
     "url": "https://github.com/xieweicong/scopedb-mcp/issues"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "pnpm": {
     "onlyBuiltDependencies": ["esbuild"]
