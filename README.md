@@ -42,6 +42,18 @@ The result is a better default for AI products:
 | Raw SQL / full DB access | Flexible querying | Security risk, token bloat, accidental exposure of sensitive data |
 | **ScopeDB** | AI autonomy with scoped access | You define the boundary once, and the tools stay inside it |
 
+## How Teams Usually Solve This Today
+
+Traditionally, teams piece this together from multiple layers:
+
+- **Database-level controls** like RLS, views, read-only roles, or restricted schemas
+- **Application-level APIs** like `getRecentOrders(userId)` or `updateOrderStatus(orderId)`
+- **Manual context assembly** that fetches data ahead of each model call
+
+That approach works, but it usually means a lot of glue code between your database, your backend, and your AI layer.
+
+ScopeDB is not trying to replace fundamentals like RLS. It packages the AI-facing part of that stack into one reusable layer: declare the boundary once, generate tools from config, and let the model operate autonomously inside those rules. If you already use RLS, ScopeDB sits above it as the scoped access layer for AI.
+
 ## What It Feels Like
 
 One app can expose different database capabilities to different AI workflows without writing custom query code for each one:
