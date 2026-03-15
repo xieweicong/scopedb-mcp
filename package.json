@@ -1,0 +1,48 @@
+{
+  "name": "scopedb-mcp",
+  "version": "0.1.0",
+  "description": "Config-driven MCP server for safe, scoped AI database access",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./server": "./dist/server/mcp.js"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "@supabase/supabase-js": "^2.49.4",
+    "yaml": "^2.7.1",
+    "zod": "^3.24.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "tsup": "^8.4.0",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.2"
+  },
+  "keywords": [
+    "mcp", "database", "ai", "supabase", "postgres",
+    "claude", "permissions", "security", "agent"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xieweicong/scopedb-mcp.git"
+  },
+  "homepage": "https://github.com/xieweicong/scopedb-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/xieweicong/scopedb-mcp/issues"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild"]
+  }
+}

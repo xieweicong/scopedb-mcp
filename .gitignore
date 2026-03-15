@@ -1,0 +1,16 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.env
+.env.*
+.DS_Store
+
+# Claude Code
+.claude/
+CLAUDE.md
+
+# Docs (published separately)
+docs/
+
+# Local config with real credentials
+/scopedb.config.yaml

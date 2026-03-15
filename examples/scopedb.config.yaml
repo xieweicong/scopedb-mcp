@@ -1,0 +1,134 @@
+version: 1
+
+database:
+  adapter: supabase
+  url: ${SUPABASE_URL}
+  key: ${SUPABASE_SERVICE_KEY}
+
+tables:
+  users:
+    description: "Employee directory"
+    columns:
+      id:
+        type: uuid
+      name:
+        type: text
+        description: "Full name"
+      email:
+        type: text
+        description: "Email address"
+      department:
+        type: text
+        description: "Department"
+      role:
+        type: text
+        description: "Role (manager / member / intern)"
+      salary:
+        type: integer
+        description: "Annual salary (USD)"
+      created_at:
+        type: timestamp
+    row_filter: "deleted_at IS NULL"
+
+  orders:
+    description: "Sales orders"
+    columns:
+      id:
+        type: uuid
+      user_id:
+        type: uuid
+        references: users.id
+      product:
+        type: text
+        description: "Product name"
+      amount:
+        type: integer
+        description: "Total price (USD, tax included)"
+      status:
+        type: text
+        description: "pending / confirmed / shipped / cancelled"
+      internal_note:
+        type: text
+        description: "Internal memo"
+      ordered_at:
+        type: timestamp
+        description: "Order date"
+
+  products:
+    description: "Product catalog"
+    columns:
+      id:
+        type: uuid
+      name:
+        type: text
+        description: "Product name"
+      price:
+        type: integer
+        description: "Retail price (USD, tax included)"
+      cost:
+        type: integer
+        description: "Unit cost (USD)"
+      category:
+        type: text
+        description: "Category"
+      in_stock:
+        type: boolean
+        description: "In stock"
+
+scopes:
+  support:
+    description: "Customer support. Minimal info needed for handling inquiries."
+    tables:
+      users:
+        access: read
+        columns: [name]
+      orders:
+        access: read
+        columns: [product, amount, status, ordered_at]
+    settings:
+      max_rows: 50
+      max_joins: 1
+
+  analytics:
+    description: "Sales analytics and reporting. No PII or cost data exposed."
+    tables:
+      users:
+        access: read
+        columns: [name, department, role, created_at]
+      orders:
+        access: read
+        columns: [user_id, product, amount, status, ordered_at]
+      products:
+        access: read
+        columns: [name, price, category, in_stock]
+    settings:
+      max_rows: 500
+      max_joins: 3
+      allow_aggregate: true
+
+  admin:
+    description: "Admin access. Write permissions enabled, cost data visible."
+    tables:
+      users:
+        access: read
+        columns: [name, email, department, role, salary, created_at]
+      orders:
+        access: [read, write]
+        columns: [user_id, product, amount, status, internal_note, ordered_at]
+        writable_columns: [status, internal_note]
+      products:
+        access: read
+        columns: [name, price, cost, category, in_stock]
+    settings:
+      max_rows: 1000
+      max_joins: 3
+      allow_aggregate: true
+
+settings:
+  default_scope: support
+  max_rows: 200
+  max_joins: 2
+  timeout_ms: 5000
+  result_format: compact
+  allow_aggregate: false
+  log: true
